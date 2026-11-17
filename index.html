@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Factor Model Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@600&display=swap" rel="stylesheet">
+<style>
+/* Layout: left rail holds data and the test builder; right column holds results that grow as runs are added. */
+:root {
+  --bg: #f2f5f8; --surface: #ffffff; --surface-2: #f7f9fb; --ink: #101c28; --muted: #546474; --line: #d7dfe7;
+  --accent: #0a5c8f; --accent-ink: #ffffff; --accent-soft: #e1eef7;
+  --good: #1b7a4b; --good-soft: #e3f3ea; --bad: #b42318; --bad-soft: #fbe9e7; --warn: #8a5a00; --warn-soft: #fbf1d9;
+  --pos: 10, 92, 143; --neg: 194, 65, 12;
+  --display: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d141b; --surface: #141e28; --surface-2: #101922; --ink: #e6edf3; --muted: #93a4b5; --line: #263543;
+    --accent: #5db3e8; --accent-ink: #07131c; --accent-soft: #14303f;
+    --good: #4cc38a; --good-soft: #12301f; --bad: #ff8179; --bad-soft: #3a1a18; --warn: #e3b341; --warn-soft: #33290f;
+    --pos: 93, 179, 232; --neg: 240, 138, 75; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d141b; --surface: #141e28; --surface-2: #101922; --ink: #e6edf3; --muted: #93a4b5; --line: #263543;
+  --accent: #5db3e8; --accent-ink: #07131c; --accent-soft: #14303f;
+  --good: #4cc38a; --good-soft: #12301f; --bad: #ff8179; --bad-soft: #3a1a18; --warn: #e3b341; --warn-soft: #33290f;
+  --pos: 93, 179, 232; --neg: 240, 138, 75; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num, td.num, th.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--mono); font-size: 0.92em; }
+
+.top { padding: 22px 20px 6px; max-width: 1480px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; }
+.top h1 { font: 600 26px/1.15 var(--display); letter-spacing: -0.01em; }
+.top p { margin: 0; color: var(--muted); max-width: 70ch; }
+.banner { max-width: 1480px; margin: 10px auto 0; padding: 0 20px; }
+.banner > div { background: var(--warn-soft); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); border-radius: 8px; padding: 9px 14px; font-size: 14px; }
+.banner[hidden] { display: none; }
+
+.shell { max-width: 1480px; margin: 0 auto; padding: 16px 20px 56px; display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 960px) { .shell { grid-template-columns: minmax(0, 1fr); } }
+.rail { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+.card > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.card h2 { font: 600 16px/1.2 var(--body); letter-spacing: 0.01em; }
+.step { color: var(--muted); font: 500 12px var(--mono); margin-right: 8px; }
+.hint { color: var(--muted); font-size: 13px; margin: 0; }
+
+.drop { border: 1.5px dashed var(--line); border-radius: 8px; padding: 14px; text-align: center; background: var(--surface-2); cursor: pointer; transition: border-color .15s, background .15s; }
+.drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop strong { display: block; }
+.drop span { color: var(--muted); font-size: 13px; }
+.files { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.files li { display: grid; grid-template-columns: 8px 1fr auto; gap: 4px 10px; align-items: center; font-size: 13px; }
+.files .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.files li.on .dot { background: var(--good); }
+.files li.off { color: var(--muted); }
+.files .meta { grid-column: 2 / 4; color: var(--muted); font-size: 12px; margin-top: -2px; }
+.files .meta.stale { color: var(--warn); }
+.files .req { font-size: 11px; color: var(--warn); }
+.links { margin-top: 10px; font-size: 13px; }
+a { color: var(--accent); }
+
+.field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+.field > label, .field > .lbl { font-size: 12.5px; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; }
+select, input[type="text"] { width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 7px; padding: 8px 10px; min-height: 38px; }
+select:disabled, input:disabled { opacity: 0.5; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; width: 100%; }
+.seg label { flex: 1; text-align: center; padding: 8px 6px; cursor: pointer; font-size: 13.5px; background: var(--surface); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg input:checked + span { color: var(--accent-ink); }
+.seg label:has(input:checked) { background: var(--accent); color: var(--accent-ink); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 12px; font-size: 13px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.chip:disabled { opacity: 0.45; cursor: not-allowed; }
+.checks { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }
+.checks label { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+.btns { display: flex; flex-direction: column; gap: 8px; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 9px 14px; cursor: pointer; font-weight: 600; min-height: 40px; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn.small { padding: 4px 10px; min-height: 30px; font-size: 13px; font-weight: 500; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.msg { font-size: 13px; margin: 0 0 12px; padding: 8px 10px; border-radius: 7px; }
+.msg.err { background: var(--bad-soft); color: var(--bad); }
+.msg.note { background: var(--warn-soft); color: var(--warn); }
+.msg.ok { background: var(--good-soft); color: var(--good); }
+.msg:empty { display: none; }
+
+.empty { text-align: center; padding: 38px 16px; color: var(--muted); }
+.empty h2 { color: var(--ink); margin-bottom: 6px; font-size: 17px; }
+.empty p { margin: 4px auto; max-width: 52ch; }
+
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { padding: 7px 10px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th { background: var(--surface-2); color: var(--muted); font-weight: 600; font-size: 12px; letter-spacing: 0.02em; position: sticky; top: 0; }
+th.num, td.num { text-align: right; }
+tbody tr:last-child td { border-bottom: 0; }
+tr.run { cursor: pointer; }
+tr.run:hover td { background: var(--surface-2); }
+tr.run.sel td { background: var(--accent-soft); }
+tr.run.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+tr.flash td { animation: flash 1.2s ease-out; }
+@keyframes flash { from { background: var(--accent-soft); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { tr.flash td { animation: none; } .drop { transition: none; } }
+.pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.pill.rej { background: var(--bad-soft); color: var(--bad); }
+.pill.ok { background: var(--good-soft); color: var(--good); }
+.pill.skip { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+.x { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 17px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.x:hover { color: var(--bad); }
+.sig { font-weight: 700; }
+.sig::after { content: "*"; color: var(--accent); }
+
+.chart { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--muted); font: 12px var(--body); }
+.chart .lab { fill: var(--ink); }
+.chart .val { fill: var(--ink); font-family: var(--mono); font-size: 11.5px; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .ref { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.chart .b-rej { fill: var(--bad); }
+.chart .b-ok { fill: var(--good); }
+.chart .b-skip { fill: var(--line); }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 14px; flex-wrap: wrap; }
+.tab { border: 0; background: transparent; padding: 8px 12px; cursor: pointer; color: var(--muted); font-weight: 600; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.kv { display: flex; flex-wrap: wrap; gap: 4px 18px; color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+.kv b { color: var(--ink); font-weight: 600; }
+.prose p { margin: 0 0 12px; max-width: 78ch; }
+.legend { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin: 8px 0 14px; flex-wrap: wrap; }
+.ramp { width: 160px; height: 10px; border-radius: 5px; background: linear-gradient(90deg, rgb(var(--neg)), transparent 50%, rgb(var(--pos))); border: 1px solid var(--line); }
+.heat { display: grid; grid-template-columns: auto repeat(5, minmax(64px, 1fr)); gap: 4px; align-items: stretch; min-width: 440px; }
+.heat .hd { font-size: 12px; color: var(--muted); text-align: center; align-self: end; padding: 2px 0; }
+.heat .rh { font-size: 12px; color: var(--muted); align-self: center; padding-right: 6px; white-space: nowrap; }
+.heat .cell { border-radius: 6px; padding: 7px 4px; text-align: center; font-family: var(--mono); font-size: 12px; line-height: 1.35; border: 1px solid var(--line); }
+.heat .cell small { display: block; font-size: 11px; color: var(--muted); }
+.heat .cell.hit { border: 2px solid var(--ink); }
+.foot { color: var(--muted); font-size: 12.5px; margin-top: 10px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+.pill.acc { background: var(--accent-soft); color: var(--accent); }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Factor Model Lab</h1>
+  <p>Test whether CAPM, Fama-French and Carhart models explain portfolio returns. Run as many tests as you like and compare them side by side.</p>
+</header>
+<div class="banner" id="banner" hidden><div><b>Demo data.</b> You are looking at synthetic returns made up for this demo, not market data. Add Kenneth French's files on the left to test real data.</div></div>
+
+<div class="shell">
+  <aside class="rail">
+    <section class="card" id="data-card">
+      <header><h2><span class="step">1</span>Data</h2><button class="btn small" id="btn-clear" hidden>Clear data</button></header>
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Add French library files">
+        <strong>Drop French library files here</strong>
+        <span>or click to choose. Zip files as downloaded, or the unzipped .csv.</span>
+      </div>
+      <input type="file" id="file-input" multiple accept=".zip,.csv" class="sr" tabindex="-1" aria-hidden="true">
+      <ul class="files" id="file-list"></ul>
+      <p class="links hint">Download the monthly files from <a href="https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html" target="_blank" rel="noopener">Kenneth French's Data Library</a>. Use the plain monthly version, not [Daily] or [ex. Dividends]. Files stay in this browser.</p>
+    </section>
+
+    <section class="card" id="test-card">
+      <header><h2><span class="step">2</span>New test</h2></header>
+      <div class="field"><label for="f-port">Test assets</label><select id="f-port"></select></div>
+      <div class="field"><span class="lbl" id="w-lbl">Weighting</span>
+        <div class="seg" role="radiogroup" aria-labelledby="w-lbl">
+          <label><input type="radio" name="w" value="value" checked><span>Value-weighted</span></label>
+          <label><input type="radio" name="w" value="equal"><span>Equal-weighted</span></label>
+        </div></div>
+      <div class="field"><span class="lbl">Factor model</span>
+        <div class="chips" id="f-presets"></div>
+        <div class="checks" id="f-factors"></div></div>
+      <div class="field"><span class="lbl">Period (YYYY-MM)</span>
+        <div class="row2">
+          <input type="text" id="f-start" inputmode="numeric" placeholder="1963-07" aria-label="Start month" autocomplete="off">
+          <input type="text" id="f-end" inputmode="numeric" placeholder="2024-10" aria-label="End month" autocomplete="off">
+        </div>
+        <p class="hint" id="f-bounds"></p></div>
+      <div class="field"><label for="f-sig">Significance level</label>
+        <select id="f-sig"><option value="0.01">1%</option><option value="0.05" selected>5%</option><option value="0.10">10%</option></select></div>
+      <p class="msg" id="f-note" role="status"></p>
+      <p class="msg" id="f-msg" role="alert"></p>
+      <div class="btns">
+        <button class="btn primary" id="btn-run" type="button">Run test</button>
+        <button class="btn" id="btn-batch" type="button" title="Runs CAPM, Fama-French 3-factor and Carhart on the same assets and period">Compare CAPM, FF3 and Carhart</button>
+      </div>
+      <p class="hint" id="status" role="status" aria-live="polite" style="margin-top:10px"></p>
+    </section>
+  </aside>
+
+  <main class="main" id="results" aria-live="polite"></main>
+</div>
+
+<script>
+/* Factor Model Lab: statistical core.
+   A direct port of the notebook "Empirical Testing: Multi-factor Models" (CAPM, FF3, Carhart, any factor mix).
+   Returns are in percent per month throughout. No dependencies. */
+const Core = (() => {
+  "use strict";
+
+  // ---------------------------------------------------------------- datasets
+  const EXPECTED = [
+    ["Fama/French 3 Factors", "f-f_research_data_factors", "F-F_Research_Data_Factors_CSV.zip"],
+    ["Momentum Factor (Mom)", "f-f_momentum_factor", "F-F_Momentum_Factor_CSV.zip"],
+    ["25 Portfolios Formed on Size and Book-to-Market (5 x 5)", "25_portfolios_5x5", "25_Portfolios_5x5_CSV.zip"],
+    ["25 Portfolios Formed on Size and Momentum (5 x 5)", "25_portfolios_me_prior_12_2", "25_Portfolios_ME_Prior_12_2_CSV.zip"],
+    ["25 Portfolios Formed on Size and Investment (5 x 5)", "25_portfolios_me_inv_5x5", "25_Portfolios_ME_INV_5x5_CSV.zip"],
+    ["25 Portfolios Formed on Size and Operating Profitability (5 x 5)", "25_portfolios_me_op_5x5", "25_Portfolios_ME_OP_5x5_CSV.zip"],
+    ["25 Portfolios Formed on Size and Short-Term Reversal (5 x 5)", "25_portfolios_me_prior_1_0", "25_Portfolios_ME_Prior_1_0_CSV.zip"],
+    ["25 Portfolios Formed on Size and Long-Term Reversal (5 x 5)", "25_portfolios_me_prior_60_13", "25_Portfolios_ME_Prior_60_13_CSV.zip"],
+    ["17 Industry Portfolios", "17_industry_portfolios", "17_Industry_Portfolios_CSV.zip"],
+    ["48 Industry Portfolios", "48_industry_portfolios", "48_Industry_Portfolios_CSV.zip"],
+  ];
+  const FACTOR_LABELS = ["Fama/French 3 Factors", "Momentum Factor (Mom)"];
+  const PRESETS = { CAPM: ["MKT"], FF3: ["MKT", "SMB", "HML"], CARHART: ["MKT", "SMB", "HML", "MOM"] };
+  const MIN_MONTHS = 120;
+  const EARLIEST_ALLOWED = 1927 * 12; // 1927-01
+
+  // Month helpers: a month is an integer year*12 + (month-1).
+  const toIdx = (y, m) => y * 12 + (m - 1);
+  const fmt = (i) => `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`;
+  function parseMonth(s) {
+    const m = /^\s*(\d{4})-(\d{1,2})\s*$/.exec(s || "");
+    if (!m) return null;
+    const mo = +m[2];
+    if (mo < 1 || mo > 12) return null;
+    return toIdx(+m[1], mo);
+  }
+
+  function normalise(filename) {
+    let n = filename.replace(/^.*[\\/]/, "").replace(/\.(zip|csv)$/i, "");
+    n = n.replace(/\s*\(\d+\)$/, "");
+    return n.replace(/_csv$/i, "").toLowerCase();
+  }
+
+  // ---------------------------------------------------------------- unzip (no libraries)
+  async function inflateRaw(bytes) {
+    const ds = new DecompressionStream("deflate-raw");
+    const stream = new Blob([bytes]).stream().pipeThrough(ds);
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  async function unzipFirstCsv(buf) {
+    const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    let eocd = -1;
+    for (let i = u8.length - 22; i >= Math.max(0, u8.length - 66000); i--) {
+      if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) throw new Error("Not a valid zip file.");
+    const count = dv.getUint16(eocd + 10, true);
+    let p = dv.getUint32(eocd + 16, true);
+    const dec = new TextDecoder("latin1");
+    for (let n = 0; n < count; n++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) throw new Error("Corrupt zip directory.");
+      const method = dv.getUint16(p + 10, true);
+      const csize = dv.getUint32(p + 20, true);
+      const nameLen = dv.getUint16(p + 28, true), extraLen = dv.getUint16(p + 30, true), cmtLen = dv.getUint16(p + 32, true);
+      const lho = dv.getUint32(p + 42, true);
+      const name = dec.decode(u8.subarray(p + 46, p + 46 + nameLen));
+      p += 46 + nameLen + extraLen + cmtLen;
+      if (!/\.csv$/i.test(name)) continue;
+      const lNameLen = dv.getUint16(lho + 26, true), lExtraLen = dv.getUint16(lho + 28, true);
+      const start = lho + 30 + lNameLen + lExtraLen;
+      const raw = u8.subarray(start, start + csize);
+      const out = method === 0 ? raw : method === 8 ? await inflateRaw(raw) : null;
+      if (!out) throw new Error("Unsupported zip compression.");
+      return dec.decode(out);
+    }
+    throw new Error("No .csv file found inside the zip.");
+  }
+  async function readText(name, bytes) {
+    if (/\.zip$/i.test(name)) return unzipFirstCsv(bytes);
+    return new TextDecoder("latin1").decode(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes));
+  }
+
+  // ---------------------------------------------------------------- parse French CSV
+  const isMonthLine = (s) => s !== undefined && /^\d{6}$/.test(s.split(",")[0].trim());
+
+  function parseFrench(text) {
+    const lines = text.split(/\r?\n/);
+    const head = lines.slice(0, 15).join(" ");
+    const vm = /using the (\d{6}) CRSP database/.exec(head);
+    const vintage = vm ? vm[1] : "not stated in file";
+    const tables = [];
+    let i = 1;
+    while (i < lines.length) {
+      if (isMonthLine(lines[i]) && !isMonthLine(lines[i - 1])) {
+        const header = lines[i - 1];
+        let j = i - 2;
+        while (j >= 0 && !lines[j].trim()) j--;
+        let title = j >= 0 ? lines[j].trim() : "Table";
+        if (!title || title.toLowerCase().includes("created by")) title = "Monthly";
+        let k = i;
+        while (k < lines.length && isMonthLine(lines[k])) k++;
+        const cols = header.split(",").slice(1).map((c) => c.trim());
+        const idx = [], v = cols.map(() => []);
+        for (let r = i; r < k; r++) {
+          const f = lines[r].split(",");
+          const ym = f[0].trim();
+          idx.push(toIdx(+ym.slice(0, 4), +ym.slice(4, 6)));
+          for (let c = 0; c < cols.length; c++) {
+            const x = parseFloat(f[c + 1]);
+            v[c].push(x === -99.99 || x === -999 || Number.isNaN(x) ? NaN : x);
+          }
+        }
+        tables.push({ title, idx, cols, v });
+        i = k;
+      } else i++;
+    }
+    return { vintage, tables };
+  }
+
+  const CORNER = /^(SMALL|BIG) (Lo|Hi)([A-Za-z]+)$/;
+  function renameCol(c) {
+    const m = CORNER.exec(c);
+    if (!m) return c;
+    return `ME${m[1] === "SMALL" ? 1 : 5} ${m[3]}${m[2] === "Lo" ? 1 : 5}`;
+  }
+  function cleanTitle(t) {
+    const s = t.toLowerCase().replace(/-/g, " ");
+    if (s.includes("value weighted returns")) return "Value-weighted returns";
+    if (s.includes("equal weighted returns")) return "Equal-weighted returns";
+    return null;
+  }
+
+  /** Turn parsed tables into the cleaned structure used everywhere else. */
+  function buildDataset(label, parsed) {
+    const out = {};
+    if (FACTOR_LABELS.includes(label)) {
+      out.Monthly = parsed.tables[0];
+    } else {
+      for (const t of parsed.tables) {
+        const nt = cleanTitle(t.title);
+        if (nt) out[nt] = { ...t, cols: t.cols.map(renameCol) };
+      }
+    }
+    return { vintage: parsed.vintage, tables: out };
+  }
+
+  const firstTable = (d) => Object.values(d.tables)[0];
+  const colOf = (t, name) => t.v[t.cols.indexOf(name)];
+  const rowMap = (t) => { const m = new Map(); t.idx.forEach((x, i) => m.set(x, i)); return m; };
+
+  // ---------------------------------------------------------------- menus
+  const factorCode = (col) => col.toUpperCase().replace("-RF", "").replace(/[^A-Z0-9_]/g, "");
+
+  function buildMenus(data) {
+    const factorMenu = {}; let rfSource = null;
+    for (const label of FACTOR_LABELS) {
+      if (!data[label]) continue;
+      const t = data[label].tables.Monthly;
+      for (const col of t.cols) {
+        if (col.toUpperCase() === "RF") { rfSource = rfSource || label; continue; }
+        const base = factorCode(col); let code = base, n = 1;
+        while (factorMenu[code]) { n++; code = `${base}_${n}`; }
+        factorMenu[code] = { label, col };
+      }
+    }
+    const portfolios = EXPECTED.map((e) => e[0]).filter((l) => data[l] && !FACTOR_LABELS.includes(l) && Object.keys(data[l].tables).length);
+    return { factorMenu, rfSource, portfolios };
+  }
+
+  /** Allowed month range for the files a run would use. */
+  function dateBounds(data, menus, portfolio, weighting, factorCodes) {
+    const tables = [data[portfolio].tables[weighting], data[menus.rfSource].tables.Monthly];
+    for (const c of factorCodes) tables.push(data[menus.factorMenu[c].label].tables.Monthly);
+    const earliest = Math.max(EARLIEST_ALLOWED, ...tables.map((t) => Math.min(...t.idx)));
+    const latest = Math.min(...tables.map((t) => Math.max(...t.idx)));
+    return { earliest, latest };
+  }
+
+  // ---------------------------------------------------------------- distributions
+  function lgamma(x) {
+    const c = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+    let y = x, t = x + 5.5; t -= (x + 0.5) * Math.log(t);
+    let s = 1.000000000190015;
+    for (let j = 0; j < 6; j++) s += c[j] / ++y;
+    return -t + Math.log((2.5066282746310005 * s) / x);
+  }
+  function betacf(a, b, x) {
+    const FPMIN = 1e-300, EPS = 3e-16;
+    const qab = a + b, qap = a + 1, qam = a - 1;
+    let c = 1, d = 1 - (qab * x) / qap;
+    if (Math.abs(d) < FPMIN) d = FPMIN;
+    d = 1 / d; let h = d;
+    for (let m = 1; m <= 1000; m++) {
+      const m2 = 2 * m;
+      let aa = (m * (b - m) * x) / ((qam + m2) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+      c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+      d = 1 / d; h *= d * c;
+      aa = (-(a + m) * (qab + m) * x) / ((a + m2) * (qap + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+      c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+      d = 1 / d; const del = d * c; h *= del;
+      if (Math.abs(del - 1) < EPS) break;
+    }
+    return h;
+  }
+  /** Regularised incomplete beta I_x(a,b). */
+  function ibeta(x, a, b) {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    const bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    return x < (a + 1) / (a + b + 2) ? (bt * betacf(a, b, x)) / a : 1 - (bt * betacf(b, a, 1 - x)) / b;
+  }
+  const fSf = (f, d1, d2) => (f <= 0 ? 1 : ibeta(d2 / (d2 + d1 * f), d2 / 2, d1 / 2));
+  const tTwoSided = (t, df) => ibeta(df / (df + t * t), df / 2, 0.5);
+  function bisect(fn, lo, hi) { // fn decreasing in x; find x with fn(x)=0
+    for (let i = 0; i < 200; i++) {
+      const mid = (lo + hi) / 2;
+      if (fn(mid) > 0) lo = mid; else hi = mid;
+    }
+    return (lo + hi) / 2;
+  }
+  const fPpf = (q, d1, d2) => bisect((x) => fSf(x, d1, d2) - (1 - q), 0, 1e6);
+  const tPpfTwoSided = (sig, df) => bisect((x) => tTwoSided(x, df) - sig, 0, 1e4); // critical |t|
+
+  // ---------------------------------------------------------------- small linear algebra
+  function solve(A, B) { // A: n x n (array of rows), B: n x m. Returns A^-1 B.
+    const n = A.length, m = B[0].length;
+    const M = A.map((r, i) => [...r, ...B[i]]);
+    for (let c = 0; c < n; c++) {
+      let p = c;
+      for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+      if (Math.abs(M[p][c]) < 1e-14) throw new Error("Matrix is singular. Try more months or fewer portfolios.");
+      [M[c], M[p]] = [M[p], M[c]];
+      const piv = M[c][c];
+      for (let j = c; j < n + m; j++) M[c][j] /= piv;
+      for (let r = 0; r < n; r++) {
+        if (r === c) continue;
+        const f = M[r][c];
+        if (f !== 0) for (let j = c; j < n + m; j++) M[r][j] -= f * M[c][j];
+      }
+    }
+    return M.map((r) => r.slice(n));
+  }
+  const eye = (n) => Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => (i === j ? 1 : 0)));
+  const inv = (A) => solve(A, eye(A.length));
+  const mean = (a) => a.reduce((s, x) => s + x, 0) / a.length;
+  const sd1 = (a) => { const m = mean(a); return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / (a.length - 1)); };
+
+  // ---------------------------------------------------------------- the analysis
+  /** Excess portfolio returns (T x N) and factors (T x K) for the chosen settings. */
+  function prepareData(data, menus, s) {
+    const port = data[s.portfolio].tables[s.weighting];
+    const rfT = data[menus.rfSource].tables.Monthly, rf = rfT.v[rfT.cols.indexOf("RF")], rfMap = rowMap(rfT);
+    const fac = s.factors.map((c) => {
+      const { label, col } = menus.factorMenu[c]; const t = data[label].tables.Monthly;
+      return { v: colOf(t, col), map: rowMap(t) };
+    });
+    const months = [], Y = [], F = [];
+    port.idx.forEach((m, r) => {
+      if (m < s.start || m > s.end) return;
+      const rr = rfMap.get(m);
+      if (rr === undefined || Number.isNaN(rf[rr])) return;
+      const y = port.v.map((col) => col[r] - rf[rr]);
+      if (y.some(Number.isNaN)) return;
+      const f = fac.map((x) => { const i = x.map.get(m); return i === undefined ? NaN : x.v[i]; });
+      if (f.some(Number.isNaN)) return;
+      months.push(m); Y.push(y); F.push(f);
+    });
+    return { months, Y, F, portfolios: port.cols.slice(), factors: s.factors.slice(), dropped: s.end - s.start + 1 - months.length };
+  }
+
+  function timeSeries(D) {
+    const T = D.Y.length, N = D.portfolios.length, K = D.factors.length;
+    const X = D.F.map((f) => [1, ...f]);
+    const XtX = Array.from({ length: K + 1 }, () => new Array(K + 1).fill(0));
+    const XtY = Array.from({ length: K + 1 }, () => new Array(N).fill(0));
+    for (let t = 0; t < T; t++) for (let a = 0; a <= K; a++) {
+      for (let b = 0; b <= K; b++) XtX[a][b] += X[t][a] * X[t][b];
+      for (let j = 0; j < N; j++) XtY[a][j] += X[t][a] * D.Y[t][j];
+    }
+    const XtXinv = inv(XtX);
+    const B = solve(XtX, XtY); // (K+1) x N
+    const resid = D.Y.map((y, t) => y.map((v, j) => { let f = 0; for (let a = 0; a <= K; a++) f += X[t][a] * B[a][j]; return v - f; }));
+    const dof = T - K - 1;
+    const sse = new Array(N).fill(0), sst = new Array(N).fill(0);
+    const ym = Array.from({ length: N }, (_, j) => mean(D.Y.map((y) => y[j])));
+    for (let t = 0; t < T; t++) for (let j = 0; j < N; j++) { sse[j] += resid[t][j] ** 2; sst[j] += (D.Y[t][j] - ym[j]) ** 2; }
+    const se = (a, j) => Math.sqrt((XtXinv[a][a] * sse[j]) / dof);
+    const alpha = B[0].slice(), tAlpha = alpha.map((a, j) => a / se(0, j));
+    const betas = Array.from({ length: N }, (_, j) => Array.from({ length: K }, (_, k) => B[k + 1][j]));
+    const tBetas = betas.map((r, j) => r.map((b, k) => b / se(k + 1, j)));
+    const r2 = sse.map((e, j) => 1 - e / sst[j]);
+    const Sigma = Array.from({ length: N }, (_, i) => Array.from({ length: N }, (_, j) => {
+      let s = 0; for (let t = 0; t < T; t++) s += resid[t][i] * resid[t][j]; return s / T;
+    }));
+    const mu = Array.from({ length: K }, (_, k) => mean(D.F.map((f) => f[k])));
+    const Omega = Array.from({ length: K }, (_, a) => Array.from({ length: K }, (_, b) => {
+      let s = 0; for (let t = 0; t < T; t++) s += (D.F[t][a] - mu[a]) * (D.F[t][b] - mu[b]); return s / T;
+    }));
+    return { alpha, tAlpha, betas, tBetas, r2, Sigma, mu, Omega, T, N, K, dof, names: D.portfolios, factorNames: D.factors };
+  }
+
+  const quad = (A, v) => { const s = solve(A, v.map((x) => [x])); return v.reduce((acc, x, i) => acc + x * s[i][0], 0); };
+
+  function grsTest(ts, sig) {
+    const { T, N, K } = ts, df1 = N, df2 = T - N - K;
+    if (df2 <= 0) return { F: NaN, df1, df2, Fcrit: NaN, p: NaN, reject: null, note: `Skipped: needs more than ${N + K} months, have ${T}.` };
+    const alphaTerm = quad(ts.Sigma, ts.alpha);
+    const sharpeTerm = 1 + quad(ts.Omega, ts.mu);
+    const F = (df2 / N) * (alphaTerm / sharpeTerm);
+    const Fcrit = fPpf(1 - sig, df1, df2);
+    return { F, df1, df2, Fcrit, p: fSf(F, df1, df2), reject: F > Fcrit, note: "" };
+  }
+
+  function crossSectional(D, ts, sig) {
+    const T = D.Y.length, N = D.portfolios.length, K = D.factors.length;
+    const names = ["Intercept", ...D.factors];
+    const Bm = ts.betas.map((b) => [1, ...b]); // N x (K+1)
+    const BtB = Array.from({ length: K + 1 }, (_, a) => Array.from({ length: K + 1 }, (_, b) => Bm.reduce((s, r) => s + r[a] * r[b], 0)));
+    const BtBinv = inv(BtB);
+    const A = BtBinv.map((row) => Bm.map((bj) => row.reduce((s, x, a) => s + x * bj[a], 0))); // (K+1) x N
+    const rbar = Array.from({ length: N }, (_, j) => mean(D.Y.map((y) => y[j])));
+    const gamma = A.map((row) => row.reduce((s, x, j) => s + x * rbar[j], 0));
+    const G = D.Y.map((y) => A.map((row) => row.reduce((s, x, j) => s + x * y[j], 0))); // T x (K+1)
+    const dfA = N - K - 1, dfB = T - 1;
+    let seA, critA;
+    if (dfA > 0) {
+      const res = rbar.map((r, j) => r - Bm[j].reduce((s, b, a) => s + b * gamma[a], 0));
+      const s2 = res.reduce((s, x) => s + x * x, 0) / dfA;
+      seA = BtBinv.map((r, a) => Math.sqrt(s2 * r[a])); critA = tPpfTwoSided(sig, dfA);
+    } else { seA = gamma.map(() => NaN); critA = NaN; }
+    const seB = names.map((_, a) => sd1(G.map((g) => g[a])) / Math.sqrt(T));
+    const critB = tPpfTwoSided(sig, dfB);
+    const facAvg = [NaN, ...D.factors.map((_, k) => mean(D.F.map((f) => f[k])))];
+    const rows = names.map((name, a) => {
+      const tA = gamma[a] / seA[a], tB = gamma[a] / seB[a];
+      const pA = dfA > 0 ? tTwoSided(Math.abs(tA), dfA) : NaN, pB = tTwoSided(Math.abs(tB), dfB);
+      const decA = Number.isNaN(tA) ? "n/a" : Math.abs(tA) > critA ? "Significant" : "Not significant";
+      const decB = Math.abs(tB) > critB ? "Significant" : "Not significant";
+      let differ = "n/a", direction = "-";
+      if (decA !== "n/a") {
+        if (decA === decB) differ = "No";
+        else { differ = "Yes"; direction = decA === "Significant" ? "OLS significant, FM not" : "FM significant, OLS not"; }
+      }
+      return { name, gamma: gamma[a], facAvg: facAvg[a], seA: seA[a], tA, pA, decA, seB: seB[a], tB, pB, decB, differ, direction };
+    });
+    return { rows, dfA, dfB, critA, critB };
+  }
+
+  function runModel(D, sig) {
+    const ts = timeSeries(D);
+    const grs = grsTest(ts, sig);
+    const cs = crossSectional(D, ts, sig);
+    const tcrit = tPpfTwoSided(sig, ts.dof);
+    const summary = {
+      factors: D.factors.join("+"), T: ts.T, N: ts.N, F: grs.F, Fcrit: grs.Fcrit, p: grs.p,
+      avgAbsAlpha: mean(ts.alpha.map(Math.abs)), avgR2: mean(ts.r2), sigAlphas: ts.tAlpha.filter((t) => Math.abs(t) > tcrit).length,
+    };
+    return { ts, grs, cs, summary };
+  }
+
+  // ---------------------------------------------------------------- the run log
+  const shortName = (l) => l.replace("Portfolios Formed on ", "").replace(" (5 x 5)", "");
+  const runKey = (s) => [s.portfolio, s.weighting, s.factors.join(","), fmt(s.start), fmt(s.end), s.sig].join("|");
+
+  // ---------------------------------------------------------------- plain-words summary
+  const pFmt = (p) => (p < 0.001 ? "p < 0.001" : `p = ${p.toFixed(3)}`);
+  function explainRun(run) {
+    const { model: m, label, factors, portfolios, weighting, start, end, sig } = run;
+    const g = m.grs, ts = m.ts, s = m.summary, rows = m.cs.rows;
+    const { T, N, K } = ts; const level = `${Math.round(sig * 100)}%`;
+    const out = [];
+    out.push(`${label} tests the ${factors.join(" + ")} factor model on the ${N} ${weighting.toLowerCase()} ${portfolios} portfolios from ${start} to ${end} (${T} months).`);
+    if (g.reject === null) out.push(`The joint alpha (GRS) test could not be run: ${g.note}`);
+    else {
+      const detail = `${s.sigAlphas} of the ${N} portfolios have individually significant alphas, and the average absolute alpha is ${s.avgAbsAlpha.toFixed(2)}% per month.`;
+      const stat = `F = ${g.F.toFixed(2)} against a critical value of ${g.Fcrit.toFixed(2)}, ${pFmt(g.p)}`;
+      out.push(g.reject
+        ? `The GRS test rejects the model at the ${level} level (${stat}). In plain words, the pricing errors (alphas) left over after accounting for these factors are too large, taken together, to be explained by chance, so these factors do not fully explain the portfolios' average returns. ${detail}`
+        : `The GRS test does not reject the model at the ${level} level (${stat}). In plain words, the alphas are small enough, taken together, to be consistent with zero, so the data give no statistical reason to say these factors are missing something. This does not prove the model is right, only that this sample cannot show it is wrong. ${detail}`);
+    }
+    const b = rows[0];
+    const sw = (d) => (d === "Significant" ? "statistically significant" : "not statistically significant");
+    const parts = rows.slice(1).map((r) => `${r.name} earns a premium of ${r.gamma.toFixed(2)}% per month (the factor's own average return is ${r.facAvg.toFixed(2)}%; t = ${r.tB.toFixed(2)}, ${sw(r.decB)})`);
+    out.push(`In the Fama-MacBeth analysis, the average intercept is ${b.gamma.toFixed(2)}% per month (t = ${b.tB.toFixed(2)}, ${sw(b.decB)}). If the model were complete this should be zero, ` +
+      (b.decB === "Significant" ? "so a significant intercept means some average return remains unexplained by the factors. " : "and it is consistent with that. ") +
+      `Each factor's premium is the average reward investors received per unit of exposure to it: ${parts.join("; ")}.`);
+    if (rows.every((r) => r.differ === "n/a")) out.push("The ordinary OLS comparison could not be computed, because it needs more portfolios than factors plus one.");
+    else {
+      const ratio = mean(rows.map((r) => r.seB / r.seA));
+      const diff = rows.filter((r) => r.differ === "Yes");
+      if (!diff.length) out.push(`Switching from ordinary OLS standard errors to Fama-MacBeth did not change any conclusion: the same coefficients are significant under both methods. On average the Fama-MacBeth standard errors are ${ratio.toFixed(1)} times the OLS ones.`);
+      else {
+        const bits = diff.map((r) => r.direction.startsWith("OLS")
+          ? `${r.name} looks significant with OLS (t = ${r.tA.toFixed(2)}) but not with Fama-MacBeth (t = ${r.tB.toFixed(2)}), because its standard error is ${(r.seB / r.seA).toFixed(1)} times larger`
+          : `${r.name} is significant with Fama-MacBeth (t = ${r.tB.toFixed(2)}) but not with OLS (t = ${r.tA.toFixed(2)})`);
+        const meaning = diff.some((r) => r.direction.startsWith("OLS"))
+          ? "This means the one-shot method overstated how precisely these premiums are known, because it treats the portfolios as independent when they actually move together. The Fama-MacBeth result is the more reliable one."
+          : "Here the one-shot method understated the evidence, so the Fama-MacBeth result is the more reliable one.";
+        out.push(`Switching from OLS to Fama-MacBeth standard errors changed the conclusion for ${diff.length} of ${rows.length} coefficients: ${bits.join("; ")}. ${meaning}`);
+      }
+    }
+    let note = "These are statistical results from one sample, not proof.";
+    if (T < 3 * (N + K)) note = `With only ${T} months for ${N} portfolios and ${K} factors, the tests have limited reliability, especially the GRS test. ` + note;
+    out.push(note);
+    return out;
+  }
+
+  return {
+    EXPECTED, FACTOR_LABELS, PRESETS, MIN_MONTHS, fmt, parseMonth, normalise, readText, parseFrench, buildDataset, firstTable,
+    buildMenus, dateBounds, prepareData, runModel, shortName, runKey, explainRun, fSf, fPpf, tTwoSided, tPpfTwoSided, unzipFirstCsv, mean,
+  };
+})();
+if (typeof module !== "undefined") module.exports = Core;
+
+</script>
+<script>
+/* Synthetic demo data, written in the same text format as Kenneth French's CSV files,
+   so the real parser is exercised. Not real market data. */
+const Demo = (() => {
+  function rng(seed) {
+    let a = seed >>> 0;
+    const u = () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const n = () => Math.sqrt(-2 * Math.log(1 - u())) * Math.cos(2 * Math.PI * u());
+    return { u, n };
+  }
+  function files() {
+    const r = rng(20241), months = [];
+    for (let y = 1963; y <= 2024; y++) for (let m = 1; m <= 12; m++) { if (y === 2024 && m > 10) break; months.push([y, m]); }
+    const T = months.length, ym = ([y, m]) => `${y}${String(m).padStart(2, "0")}`;
+    const draw = (mu, sd) => Array.from({ length: T }, () => mu + sd * r.n());
+    const mkt = draw(0.6, 4.5), smb = draw(0.2, 3), hml = draw(0.35, 3), mom = draw(0.65, 4.2);
+    const rf = Array.from({ length: T }, () => Math.max(0, 0.35 + 0.15 * r.n()));
+    const f2 = (x) => x.toFixed(2);
+    const pre = "This file was created by CMPT_ME_BEME_RETS using the 202410 CRSP database. SYNTHETIC DEMO DATA.\n\n";
+    const out = {};
+    let t = pre + ",Mkt-RF,SMB,HML,RF\n";
+    months.forEach((mo, i) => { t += `${ym(mo)},${f2(mkt[i])},${f2(smb[i])},${f2(hml[i])},${f2(rf[i])}\n`; });
+    out["F-F_Research_Data_Factors_CSV.zip"] = t;
+    t = pre + ",Mom\n";
+    months.forEach((mo, i) => { t += `${ym(mo)},${f2(mom[i])}\n`; });
+    out["F-F_Momentum_Factor_CSV.zip"] = t;
+    const grid = (kind, alphaSd) => {
+      const names = [];
+      for (let me = 1; me <= 5; me++) for (let q = 1; q <= 5; q++) {
+        if (me === 1 && q === 1) names.push(`SMALL Lo${kind}`); else if (me === 1 && q === 5) names.push(`SMALL Hi${kind}`);
+        else if (me === 5 && q === 1) names.push(`BIG Lo${kind}`); else if (me === 5 && q === 5) names.push(`BIG Hi${kind}`);
+        else names.push(`ME${me} ${kind}${q}`);
+      }
+      const cols = names.map((_, j) => {
+        const me = Math.floor(j / 5), q = j % 5;
+        const bm = 1 + 0.08 * r.n(), bs = 1.2 - 0.35 * me + 0.05 * r.n(), bh = -0.3 + 0.225 * q + 0.04 * r.n(), bmo = kind === "PRIOR" ? -0.4 + 0.2 * q : 0.03 * r.n();
+        const a = alphaSd * r.n();
+        return Array.from({ length: T }, (_, i) => rf[i] + a + bm * mkt[i] + bs * smb[i] + bh * hml[i] + bmo * mom[i] + 1.4 * r.n());
+      });
+      let s = pre + "  Average Value Weighted Returns -- Monthly\n," + names.join(",") + "\n";
+      months.forEach((mo, i) => { s += `${ym(mo)},${cols.map((c) => f2(c[i])).join(",")}\n`; });
+      s += "\n  Average Equal Weighted Returns -- Monthly\n," + names.join(",") + "\n";
+      months.forEach((mo, i) => { s += `${ym(mo)},${cols.map((c) => f2(c[i] + 0.25)).join(",")}\n`; });
+      return s;
+    };
+    out["25_Portfolios_5x5_CSV.zip"] = grid("BM", 0.02);
+    out["25_Portfolios_ME_Prior_12_2_CSV.zip"] = grid("PRIOR", 0.2);
+    const names = ["Food", "Mines", "Oil", "Clths", "Durbl", "Chems", "Cnsum", "Cnstr", "Steel", "FabPr", "Machn", "Cars", "Trans", "Utils", "Rtail", "Finan", "Other"];
+    const cols = names.map(() => { const b = 1 + 0.25 * r.n(); return Array.from({ length: T }, (_, i) => rf[i] + b * mkt[i] + 0.3 * r.n() * smb[i] + 2 * r.n()); });
+    let s = pre + "  Average Value Weighted Returns -- Monthly\n," + names.join(",") + "\n";
+    months.forEach((mo, i) => { s += `${ym(mo)},${cols.map((c) => f2(c[i])).join(",")}\n`; });
+    s += "\n  Average Equal Weighted Returns -- Monthly\n," + names.join(",") + "\n";
+    months.forEach((mo, i) => { s += `${ym(mo)},${cols.map((c) => f2(c[i] + 0.1)).join(",")}\n`; });
+    out["17_Industry_Portfolios_CSV.zip"] = s;
+    return out;
+  }
+  return { files };
+})();
+
+</script>
+<script>
+/* Factor Model Lab: user interface. Depends on Core (core.js) and Demo (demo.js). */
+(() => {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const fx = (x, d = 3) => (Number.isFinite(x) ? x.toFixed(d) : "–");
+  const pTxt = (p) => (!Number.isFinite(p) ? "–" : p < 0.001 ? "<0.001" : p.toFixed(3));
+  const DATA_URL = "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html";
+  const WEIGHTS = { value: "Value-weighted returns", equal: "Equal-weighted returns" };
+
+  const state = {
+    files: {}, data: {}, demo: false, menus: null, runs: [], seq: 0, sel: null, tab: "words", flash: null,
+    form: { portfolio: "", weighting: WEIGHTS.value, factors: ["MKT", "SMB", "HML"], start: "", end: "", sig: "0.05", touched: false },
+    ignored: [], loadErrors: {},
+  };
+
+  // ------------------------------------------------------------------ storage (best effort)
+  const idb = {
+    open: () => new Promise((res, rej) => { const r = indexedDB.open("factor-lab", 1); r.onupgradeneeded = () => r.result.createObjectStore("files"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }),
+    async put(k, v) { try { const db = await this.open(); await new Promise((res, rej) => { const t = db.transaction("files", "readwrite"); t.objectStore("files").put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); } catch (e) { /* storage unavailable */ } },
+    async all() { try { const db = await this.open(); return await new Promise((res, rej) => { const out = {}; const q = db.transaction("files").objectStore("files").openCursor(); q.onsuccess = () => { const c = q.result; if (c) { out[c.key] = c.value; c.continue(); } else res(out); }; q.onerror = () => rej(q.error); }); } catch (e) { return {}; } },
+    async clear() { try { const db = await this.open(); await new Promise((res) => { const t = db.transaction("files", "readwrite"); t.objectStore("files").clear(); t.oncomplete = res; t.onerror = res; }); } catch (e) { /* ignore */ } },
+  };
+
+  // ------------------------------------------------------------------ data loading
+  async function ingest(name, bytes, savedAt, isDemo) {
+    const stem = Core.normalise(name);
+    const e = Core.EXPECTED.find((x) => x[1] === stem);
+    if (!e) return { ignored: name };
+    const label = e[0];
+    try {
+      const text = await Core.readText(name, bytes);
+      const ds = Core.buildDataset(label, Core.parseFrench(text));
+      const first = Object.values(ds.tables)[0];
+      if (!first || !first.idx.length) throw new Error("No monthly return tables found in this file.");
+      if (Core.FACTOR_LABELS.includes(label) && !first.cols.length) throw new Error("No factor columns found in this file.");
+      state.data[label] = { ...ds, file: name, savedAt, demo: isDemo };
+      if (!isDemo) state.files[label] = { name, bytes, savedAt };
+      delete state.loadErrors[label];
+      return { label };
+    } catch (err) {
+      state.loadErrors[label] = `${name}: ${err.message}`;
+      return { label, error: err.message };
+    }
+  }
+
+  function dropDemo() {
+    if (!state.demo) return;
+    for (const l of Object.keys(state.data)) if (state.data[l].demo) delete state.data[l];
+    state.runs = state.runs.filter((r) => !r.demo);
+    if (!state.runs.find((r) => r.id === state.sel)) state.sel = state.runs.length ? state.runs[state.runs.length - 1].id : null;
+    if (!state.runs.length) state.seq = 0;
+    state.demo = false;
+  }
+
+  async function loadFiles(list) {
+    const files = Array.from(list);
+    if (!files.length) return;
+    setStatus("Reading files…");
+    state.ignored = [];
+    let anyReal = false;
+    for (const f of files) {
+      const bytes = new Uint8Array(await f.arrayBuffer());
+      if (state.demo && !anyReal) { dropDemo(); }
+      const r = await ingest(f.name, bytes, f.lastModified || Date.now(), false);
+      if (r.ignored) state.ignored.push(r.ignored);
+      else if (!r.error) { anyReal = true; idb.put(r.label, state.files[r.label]); }
+    }
+    afterDataChange();
+    const n = Object.keys(state.data).length;
+    setStatus(state.ignored.length ? `Ignored ${state.ignored.length} file(s) that are not on the supported list.` : `${n} dataset${n === 1 ? "" : "s"} loaded.`);
+  }
+
+  async function loadDemo() {
+    const files = Demo.files();
+    for (const [name, text] of Object.entries(files)) await ingest(name.replace(/\.zip$/i, ".csv"), new TextEncoder().encode(text), Date.now(), true);
+    state.demo = true;
+    afterDataChange();
+  }
+
+  async function clearData() {
+    state.data = {}; state.files = {}; state.demo = false; state.runs = []; state.seq = 0; state.sel = null; state.loadErrors = {}; state.ignored = [];
+    await idb.clear();
+    await loadDemo();
+    await demoRuns();
+    setStatus("Cleared. Showing demo data again.");
+  }
+
+  function afterDataChange() {
+    const any = Object.keys(state.data).length;
+    state.menus = any ? Core.buildMenus(state.data) : null;
+    repairForm();
+    renderAll();
+  }
+
+  // ------------------------------------------------------------------ form state
+  function bounds() {
+    const m = state.menus, F = state.form;
+    if (!m || !m.rfSource || !F.portfolio || !F.factors.length) return null;
+    try { return Core.dateBounds(state.data, m, F.portfolio, F.weighting, F.factors); } catch (e) { return null; }
+  }
+
+  function repairForm() {
+    const m = state.menus, F = state.form;
+    if (!m) return;
+    if (!m.portfolios.includes(F.portfolio)) F.portfolio = m.portfolios[0] || "";
+    if (F.portfolio && !state.data[F.portfolio].tables[F.weighting]) F.weighting = Object.keys(state.data[F.portfolio].tables)[0];
+    F.factors = F.factors.filter((c) => m.factorMenu[c]);
+    if (!F.factors.length) F.factors = m.factorMenu.SMB && m.factorMenu.HML ? ["MKT", "SMB", "HML"] : Object.keys(m.factorMenu).slice(0, 1);
+    const b = bounds();
+    if (!b) return;
+    const s = Core.parseMonth(F.start), e = Core.parseMonth(F.end);
+    if (!F.touched || s === null || e === null || s < b.earliest || s > b.latest) F.start = Core.fmt(b.earliest);
+    if (!F.touched || e === null || s === null || e > b.latest || e < b.earliest) F.end = Core.fmt(b.latest);
+  }
+
+  const presetOf = (codes) => Object.keys(Core.PRESETS).find((p) => Core.PRESETS[p].length === codes.length && Core.PRESETS[p].every((c) => codes.includes(c)));
+  const PN = { CAPM: "CAPM", FF3: "FF3", CARHART: "Carhart" };
+  const modelName = (codes) => { const p = presetOf(codes); return p ? PN[p] : codes.join("+"); };
+
+  // ------------------------------------------------------------------ running tests
+  function validate(s) {
+    const m = state.menus;
+    if (!m || !m.rfSource) return "Load the Fama/French 3 Factors file first. It is required.";
+    if (!s.portfolio) return "Load at least one portfolio file.";
+    if (!s.factors.length) return "Choose at least one factor.";
+    if (s.start === null || s.end === null) return "Enter both months as YYYY-MM, for example 1990-01.";
+    const b = Core.dateBounds(state.data, m, s.portfolio, s.weighting, s.factors);
+    if (s.start < b.earliest) return `Start cannot be before ${Core.fmt(b.earliest)} for this selection.`;
+    if (s.end > b.latest) return `End cannot be after ${Core.fmt(b.latest)}, the last month covered by the files in use.`;
+    if (s.start >= s.end) return "Start must be before end.";
+    const n = s.end - s.start + 1;
+    if (n < Core.MIN_MONTHS) return `Choose at least ${Core.MIN_MONTHS} months (${Core.MIN_MONTHS / 12} years). You chose ${n}.`;
+    return null;
+  }
+
+  function formSettings(factors) {
+    const F = state.form;
+    return { portfolio: F.portfolio, weighting: F.weighting, factors: factors || F.factors, start: Core.parseMonth(F.start), end: Core.parseMonth(F.end), sig: +F.sig };
+  }
+
+  function execute(s) {
+    const err = validate(s);
+    if (err) throw new Error(err);
+    const D = Core.prepareData(state.data, state.menus, s);
+    if (D.months.length < D.factors.length + 3) throw new Error("Too few months with complete data for this selection.");
+    const model = Core.runModel(D, s.sig);
+    const key = Core.runKey(s);
+    const used = [s.portfolio, state.menus.rfSource, ...s.factors.map((c) => state.menus.factorMenu[c].label)];
+    const releases = {};
+    for (const l of new Set(used)) releases[l] = state.data[l].vintage;
+    const existing = state.runs.find((r) => r.key === key);
+    const run = {
+      id: existing ? existing.id : `Run ${++state.seq}`, key, portfolio: s.portfolio, portfolioShort: Core.shortName(s.portfolio),
+      weighting: s.weighting.replace(" returns", ""), factors: s.factors.slice(), start: Core.fmt(s.start), end: Core.fmt(s.end), sig: s.sig,
+      model, tcrit: Core.tPpfTwoSided(s.sig, model.ts.dof), dropped: D.dropped, releases, time: new Date(), demo: state.demo,
+    };
+    if (existing) state.runs[state.runs.indexOf(existing)] = run; else state.runs.push(run);
+    state.sel = run.id; state.flash = run.id;
+    return run;
+  }
+
+  async function runOne(factors) {
+    const msg = $("#f-msg");
+    msg.className = "msg"; msg.textContent = "";
+    const btn = $("#btn-run"); btn.disabled = true; btn.textContent = "Running…";
+    await new Promise((r) => setTimeout(r, 20));
+    try { const run = execute(formSettings(factors)); renderResults(); setStatus(`${run.id} added.`); }
+    catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
+    btn.disabled = false; btn.textContent = "Run test";
+  }
+
+  async function runBatch() {
+    const msg = $("#f-msg"); msg.className = "msg"; msg.textContent = "";
+    const m = state.menus, names = ["CAPM", "FF3", "CARHART"];
+    const ok = names.filter((n) => Core.PRESETS[n].every((c) => m.factorMenu[c]));
+    const btn = $("#btn-batch"); btn.disabled = true;
+    await new Promise((r) => setTimeout(r, 20));
+    try {
+      for (const n of ok) execute(formSettings(Core.PRESETS[n]));
+      renderResults();
+      const skipped = names.filter((n) => !ok.includes(n));
+      setStatus(`${ok.length} runs added.` + (skipped.length ? ` Skipped ${skipped.join(", ")}: load the momentum file to include it.` : ""));
+    } catch (e) { msg.className = "msg err"; msg.textContent = e.message; renderResults(); }
+    btn.disabled = false;
+  }
+
+  async function demoRuns() {
+    const F = state.form; F.portfolio = "25 Portfolios Formed on Size and Book-to-Market (5 x 5)"; F.touched = false;
+    repairForm();
+    for (const n of ["CAPM", "FF3", "CARHART"]) { try { execute(formSettings(Core.PRESETS[n])); } catch (e) { /* ignore */ } }
+    state.sel = state.runs.length ? state.runs[state.runs.length - 1].id : null; state.flash = null;
+    renderAll();
+  }
+
+  // ------------------------------------------------------------------ rendering: left rail
+  function setStatus(t) { const s = $("#status"); if (s) s.textContent = t; }
+
+  function renderData() {
+    const today = new Date();
+    const items = Core.EXPECTED.map(([label, , fname]) => {
+      const d = state.data[label];
+      const req = label === "Fama/French 3 Factors";
+      const short = label.replace("Portfolios Formed on ", "").replace(" (5 x 5)", "");
+      if (!d) {
+        const err = state.loadErrors[label];
+        return `<li class="off"><span class="dot"></span><span>${esc(short)} ${req ? '<span class="req">required</span>' : ""}</span><span></span>${err ? `<span class="meta" style="color:var(--bad)">${esc(err)}</span>` : `<span class="meta mono">${esc(fname)}</span>`}</li>`;
+      }
+      const t = Core.firstTable(d);
+      const first = Math.min(...t.idx), last = Math.max(...t.idx);
+      const behind = (today.getFullYear() - Math.floor(last / 12)) * 12 + (today.getMonth() - (last % 12));
+      return `<li class="on"><span class="dot"></span><span>${esc(short)}${d.demo ? " (demo)" : ""}</span><span></span>
+        <span class="meta${behind > 6 && !d.demo ? " stale" : ""}">CRSP ${esc(d.vintage)} · ${Core.fmt(first)} to ${Core.fmt(last)} · ${t.idx.length} months · ${behind} months behind today</span></li>`;
+    }).join("");
+    $("#file-list").innerHTML = items;
+    $("#btn-clear").hidden = !Object.keys(state.data).length;
+    $("#banner").hidden = !state.demo;
+  }
+
+  function renderForm() {
+    const m = state.menus, F = state.form;
+    const ready = !!(m && m.rfSource && m.portfolios.length);
+    const sel = $("#f-port");
+    sel.innerHTML = ready ? m.portfolios.map((p) => `<option value="${esc(p)}"${p === F.portfolio ? " selected" : ""}>${esc(p)}</option>`).join("") : '<option value="">No portfolio file loaded</option>';
+    document.querySelectorAll('input[name="w"]').forEach((r) => { r.checked = WEIGHTS[r.value] === F.weighting; r.disabled = !ready || !state.data[F.portfolio] || !state.data[F.portfolio].tables[WEIGHTS[r.value]]; });
+    const codes = ready ? Object.keys(m.factorMenu) : [];
+    const cur = presetOf(F.factors);
+    $("#f-presets").innerHTML = Object.keys(Core.PRESETS).map((p) => {
+      const avail = ready && Core.PRESETS[p].every((c) => m.factorMenu[c]);
+      return `<button type="button" class="chip" data-preset="${p}" aria-pressed="${cur === p}"${avail ? "" : ' disabled title="Needs a factor file that is not loaded"'}>${p === "CARHART" ? "Carhart" : p}</button>`;
+    }).join("");
+    $("#f-factors").innerHTML = codes.map((c) => `<label><input type="checkbox" data-factor="${esc(c)}"${F.factors.includes(c) ? " checked" : ""}> ${esc(c)}</label>`).join("") || '<span class="hint">Load the factor files to choose factors.</span>';
+    $("#f-start").value = F.start; $("#f-end").value = F.end; $("#f-sig").value = F.sig;
+    ["#f-port", "#f-start", "#f-end", "#f-sig", "#btn-run", "#btn-batch"].forEach((id) => { $(id).disabled = !ready; });
+    const b = ready ? bounds() : null;
+    $("#f-bounds").textContent = b ? `Available for this selection: ${Core.fmt(b.earliest)} to ${Core.fmt(b.latest)}` : (ready ? "" : "Load the factor file and one portfolio file to begin.");
+    if (ready) $("#btn-batch").disabled = !(Core.PRESETS.CAPM.every((c) => m.factorMenu[c]));
+    liveNote();
+  }
+
+  function liveNote() {
+    const el = $("#f-note"), m = state.menus, F = state.form;
+    el.className = "msg"; el.textContent = "";
+    if (!m || !m.rfSource || !F.portfolio || !state.data[F.portfolio].tables[F.weighting]) return;
+    const s = Core.parseMonth(F.start), e = Core.parseMonth(F.end);
+    if (s === null || e === null || e <= s) return;
+    const T = e - s + 1, N = state.data[F.portfolio].tables[F.weighting].cols.length, K = F.factors.length;
+    if (T <= N + K) { el.className = "msg note"; el.textContent = `The GRS test needs more than ${N + K} months (portfolios plus factors). This period has ${T}, so it would be skipped.`; }
+    else if (T < 3 * (N + K)) { el.className = "msg note"; el.textContent = `${T} months is short for ${N} portfolios and ${K} factor${K > 1 ? "s" : ""}. The GRS test tends to over-reject in small samples; more than ${3 * (N + K)} months is safer.`; }
+  }
+
+  // ------------------------------------------------------------------ rendering: results
+  function chartHTML(runs) {
+    const rowH = 38, padL = 200, padR = 150, W = 760, padT = 30, H = padT + runs.length * rowH + 26;
+    const ratios = runs.map((r) => (r.model.grs.reject === null ? NaN : r.model.grs.F / r.model.grs.Fcrit));
+    const max = Math.max(1.6, ...ratios.filter(Number.isFinite)) * 1.06;
+    const x = (v) => padL + ((W - padL - padR) * v) / max;
+    const step = max <= 3 ? 0.5 : max <= 6 ? 1 : max <= 14 ? 2 : max <= 30 ? 5 : 10;
+    let g = "";
+    for (let v = 0; v <= max; v += step) g += `<line class="grid" x1="${x(v)}" x2="${x(v)}" y1="${padT - 6}" y2="${H - 24}"/><text x="${x(v)}" y="${H - 8}" text-anchor="middle">${+v.toFixed(1)}×</text>`;
+    g += `<line class="ref" x1="${x(1)}" x2="${x(1)}" y1="${padT - 12}" y2="${H - 24}"/><text x="${x(1) + 5}" y="12" style="fill:var(--ink)">critical value</text>`;
+    runs.forEach((r, i) => {
+      const y = padT + i * rowH, v = ratios[i], gr = r.model.grs;
+      const cls = gr.reject === null ? "b-skip" : gr.reject ? "b-rej" : "b-ok";
+      const bar = Number.isFinite(v) ? `<rect class="${cls}" x="${x(0)}" y="${y + 6}" width="${Math.max(2, x(v) - x(0))}" height="18" rx="3"/>` : "";
+      const val = Number.isFinite(v) ? `F ${fx(gr.F, 2)} · p ${pTxt(gr.p)}` : "skipped";
+      const sub = r.portfolioShort + (r.weighting === "Equal-weighted" ? " (EW)" : "");
+      g += `<text class="lab" x="${padL - 12}" y="${y + 14}" text-anchor="end" style="font-weight:600">${esc(r.id)} · ${esc(modelName(r.factors))}</text>
+        <text x="${padL - 12}" y="${y + 29}" text-anchor="end">${esc(sub.length > 30 ? sub.slice(0, 29) + "…" : sub)}</text>${bar}
+        <text class="val" x="${(Number.isFinite(v) ? x(v) : x(0)) + 8}" y="${y + 19}">${esc(val)}</text>`;
+    });
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="GRS F-statistic as a multiple of its critical value, one bar per run" style="min-width:600px">${g}</svg>`;
+  }
+
+  function compareTable(runs) {
+    const head = ["Run", "Test assets", "Factors", "Period", "Months", "GRS F", "F crit", "GRS p", "Verdict", "Sig. alphas", "Avg |α|", "Avg R²", "OLS vs FM"];
+    const rows = runs.map((r) => {
+      const s = r.model.summary, g = r.model.grs, rows2 = r.model.cs.rows;
+      const nd = rows2.filter((x) => x.differ === "Yes").length;
+      const v = g.reject === null ? '<span class="pill skip">Skipped</span>' : g.reject ? '<span class="pill rej">Rejected</span>' : '<span class="pill ok">Not rejected</span>';
+      return `<tr class="run${r.id === state.sel ? " sel" : ""}${r.id === state.flash ? " flash" : ""}" data-run="${esc(r.id)}" tabindex="0" aria-label="Open ${esc(r.id)}">
+        <td><b>${esc(r.id)}</b>${r.demo ? ' <span class="hint">demo</span>' : ""}</td><td>${esc(r.portfolioShort)} · ${r.weighting === "Equal-weighted" ? "EW" : "VW"}</td><td>${esc(modelName(r.factors))}</td>
+        <td>${r.start} to ${r.end}</td><td class="num">${s.T}</td><td class="num">${fx(g.F, 3)}</td><td class="num">${fx(g.Fcrit, 3)}</td><td class="num">${pTxt(g.p)}</td><td>${v}</td>
+        <td class="num">${s.sigAlphas} of ${s.N}</td><td class="num">${fx(s.avgAbsAlpha, 3)}</td><td class="num">${fx(s.avgR2, 3)}</td><td>${nd ? `${nd} of ${rows2.length} differ` : "Same"}</td>
+        <td><button class="x" data-del="${esc(r.id)}" aria-label="Remove ${esc(r.id)}" title="Remove run">×</button></td></tr>`;
+    }).join("");
+    return `<div class="scroll"><table><thead><tr>${head.map((h, i) => `<th${i >= 4 && i <= 7 || i >= 9 && i <= 11 ? ' class="num"' : ""}>${h}</th>`).join("")}<th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+
+  function premiumsHTML(r) {
+    const cs = r.model.cs;
+    const dec = (d) => (d === "Significant" ? '<span class="pill ok" style="background:var(--accent-soft);color:var(--accent)">Significant</span>' : d === "n/a" ? "–" : '<span class="pill skip">Not significant</span>');
+    const body = cs.rows.map((x) => `<tr><td><b>${esc(x.name)}</b></td><td class="num">${fx(x.gamma)}</td><td class="num">${fx(x.facAvg)}</td>
+      <td class="num">${fx(x.seA)}</td><td class="num">${fx(x.tA, 2)}</td><td class="num">${pTxt(x.pA)}</td><td>${dec(x.decA)}</td>
+      <td class="num">${fx(x.seB)}</td><td class="num">${fx(x.tB, 2)}</td><td class="num">${pTxt(x.pB)}</td><td>${dec(x.decB)}</td><td>${x.differ === "Yes" ? esc(x.direction) : x.differ === "No" ? "No" : "–"}</td></tr>`).join("");
+    return `<p class="hint" style="margin-bottom:10px">Risk premiums (γ) in percent per month. Both methods give the same estimates; only the standard errors differ. Critical |t|: OLS ${fx(cs.critA, 3)} (df ${cs.dfA}), Fama-MacBeth ${fx(cs.critB, 3)} (df ${cs.dfB}).</p>
+      <div class="scroll"><table><thead><tr><th rowspan="2">Coefficient</th><th class="num" rowspan="2">γ</th><th class="num" rowspan="2">Factor avg</th><th colspan="4">One-shot OLS</th><th colspan="4">Fama-MacBeth</th><th rowspan="2">Conclusions differ?</th></tr>
+      <tr><th class="num">SE</th><th class="num">t</th><th class="num">p</th><th>Decision</th><th class="num">SE</th><th class="num">t</th><th class="num">p</th><th>Decision</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  }
+
+  function alphasHTML(r) {
+    const ts = r.model.ts, names = ts.names;
+    const re = /^ME([1-5]) ([A-Z_]+)([1-5])$/;
+    const parsed = names.map((n) => re.exec(n));
+    let heat = "";
+    if (names.length === 25 && parsed.every(Boolean) && new Set(parsed.map((p) => p[2])).size === 1) {
+      const kind = parsed[0][2], cell = {};
+      parsed.forEach((p, i) => { cell[`${p[1]}${p[3]}`] = i; });
+      let g = '<div></div>' + [1, 2, 3, 4, 5].map((q) => `<div class="hd">${esc(kind)} ${q}${q === 1 ? " (low)" : q === 5 ? " (high)" : ""}</div>`).join("");
+      for (let me = 1; me <= 5; me++) {
+        g += `<div class="rh">Size ${me}${me === 1 ? " (small)" : me === 5 ? " (big)" : ""}</div>`;
+        for (let q = 1; q <= 5; q++) {
+          const i = cell[`${me}${q}`], t = ts.tAlpha[i], a = Math.min(1, Math.abs(t) / 4) * 0.5;
+          const bg = t >= 0 ? `rgba(var(--pos), ${a.toFixed(2)})` : `rgba(var(--neg), ${a.toFixed(2)})`;
+          g += `<div class="cell${Math.abs(t) > r.tcrit ? " hit" : ""}" style="background:${bg}" title="${esc(names[i])}">${fx(ts.alpha[i], 2)}<small>t = ${fx(t, 2)}</small></div>`;
+        }
+      }
+      heat = `<p class="hint">Alpha in percent per month, with its t-statistic. Color shows the sign and size of t; an outlined cell is significant at the ${Math.round(r.sig * 100)}% level (|t| > ${fx(r.tcrit, 2)}). If the model were right, every alpha would be near zero.</p>
+        <div class="legend"><span>negative alpha</span><span class="ramp"></span><span>positive alpha</span></div><div class="scroll" style="padding:10px"><div class="heat">${g}</div></div>`;
+    }
+    const fh = ts.factorNames.map((f) => `<th class="num">β ${esc(f)}</th>`).join("");
+    const body = names.map((n, i) => `<tr><td>${esc(n)}</td><td class="num">${fx(ts.alpha[i], 3)}</td><td class="num${Math.abs(ts.tAlpha[i]) > r.tcrit ? " sig" : ""}">${fx(ts.tAlpha[i], 2)}</td>${ts.betas[i].map((b) => `<td class="num">${fx(b, 3)}</td>`).join("")}<td class="num">${fx(ts.r2[i], 3)}</td></tr>`).join("");
+    return `${heat}<h3 style="font-size:14px;margin:${heat ? 18 : 0}px 0 8px">Time-series regressions, one per portfolio</h3>
+      <div class="scroll" style="max-height:420px;overflow:auto"><table><thead><tr><th>Portfolio</th><th class="num">α (%/mo)</th><th class="num">t(α)</th>${fh}<th class="num">R²</th></tr></thead><tbody>${body}</tbody></table></div>
+      <p class="foot">* Starred t-statistics exceed the critical value of ${fx(r.tcrit, 2)} (df ${ts.dof}).</p>`;
+  }
+
+  function detailHTML(r) {
+    const g = r.model.grs;
+    const rel = Object.entries(r.releases).map(([l, v]) => `${esc(Core.shortName(l))}: ${esc(v)}`).join(" · ");
+    const tabs = [["words", "In plain words"], ["prem", "Risk premiums"], ["alpha", "Portfolio alphas"]];
+    let body;
+    if (state.tab === "words") body = `<div class="prose">${Core.explainRun({ model: r.model, label: r.id, factors: r.factors, portfolios: r.portfolioShort, weighting: r.weighting, start: r.start, end: r.end, sig: r.sig }).map((p) => `<p>${esc(p)}</p>`).join("")}</div>`;
+    else if (state.tab === "prem") body = premiumsHTML(r);
+    else body = alphasHTML(r);
+    return `<header><h2>${esc(r.id)}: ${esc(modelName(r.factors))} on ${esc(r.portfolioShort)}</h2>
+      <span><button class="btn small" data-act="copy-run">Copy tables</button> <button class="btn small" data-act="save-run">Download CSV</button></span></header>
+      <p class="kv"><span><b>${esc(r.weighting)}</b></span><span>${r.start} to ${r.end}</span><span><b>${r.model.ts.T}</b> months${r.dropped ? ` (${r.dropped} dropped for missing values)` : ""}</span><span>${Math.round(r.sig * 100)}% significance</span><span>CRSP releases: ${rel}</span></p>
+      <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${state.tab === k}">${l}</button>`).join("")}</div>${body}`;
+  }
+
+  function renderResults() {
+    const el = $("#results"), runs = state.runs.slice().reverse();
+    if (!runs.length) {
+      const ready = state.menus && state.menus.rfSource && state.menus.portfolios.length;
+      el.innerHTML = `<section class="card empty"><h2>${ready ? "Run your first test" : "Load data to begin"}</h2>
+        <p>${ready ? "Choose test assets, factors and a period on the left, then press Run test. Each run is added here and kept, so you can compare models side by side." : "Add the French library files on the left. Only the Fama/French 3 Factors file is required, plus at least one portfolio file."}</p></section>`;
+      return;
+    }
+    const sel = state.runs.find((r) => r.id === state.sel) || state.runs[state.runs.length - 1];
+    state.sel = sel.id;
+    el.innerHTML = `<section class="card"><header><h2>All runs <span class="hint">(${runs.length}, newest first)</span></h2>
+        <span><button class="btn small" data-act="copy-all">Copy CSV</button> <button class="btn small" data-act="save-all">Download CSV</button> <button class="btn small" data-act="clear-runs">Clear runs</button></span></header>
+        <p class="hint" style="margin-bottom:8px">Each bar is the GRS F-statistic divided by its critical value. A bar past the dashed line means the model's alphas are jointly different from zero, so the model is rejected.</p>
+        <div class="scroll" style="margin-bottom:14px;padding:6px 4px 0">${chartHTML(runs)}</div>${compareTable(runs)}</section>
+      <section class="card" id="detail">${detailHTML(sel)}</section>`;
+    state.flash = null;
+  }
+
+  function renderAll() { renderData(); renderForm(); renderResults(); }
+
+  // ------------------------------------------------------------------ export
+  const q = (v) => { const s = v === undefined || v === null ? "" : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const csv = (rows) => rows.map((r) => r.map(q).join(",")).join("\n") + "\n";
+  function allCSV() {
+    const head = ["Run", "Test assets", "Weighting", "Factors", "Start", "End", "Months", "Portfolios", "Significance", "GRS F", "F critical", "df1", "df2", "GRS p-value", "GRS verdict", "Sig. alphas", "Avg |alpha| (%/mo)", "Avg R2", "t crit (OLS)", "t crit (FM)", "Coefficients where OLS and FM differ", "CRSP releases"];
+    const rows = state.runs.map((r) => {
+      const s = r.model.summary, g = r.model.grs, cs = r.model.cs;
+      return [r.id, r.portfolioShort, r.weighting, s.factors, r.start, r.end, s.T, s.N, r.sig, g.F, g.Fcrit, g.df1, g.df2, g.p, g.reject === null ? "Skipped" : g.reject ? "Rejected" : "Not rejected", s.sigAlphas, s.avgAbsAlpha, s.avgR2, cs.critA, cs.critB,
+        cs.rows.filter((x) => x.differ === "Yes").map((x) => `${x.name}: ${x.direction}`).join("; ") || "-", Object.entries(r.releases).map(([l, v]) => `${Core.shortName(l)} ${v}`).join("; ")];
+    });
+    return csv([head, ...rows]);
+  }
+  function runCSV(r) {
+    const cs = r.model.cs, ts = r.model.ts;
+    const a = [[`${r.id}`, r.portfolioShort, r.weighting, r.factors.join("+"), r.start, r.end], [], ["Risk premiums (%/month)"],
+      ["Coefficient", "Gamma", "Factor avg", "SE (OLS)", "t (OLS)", "p (OLS)", "Decision (OLS)", "SE (FM)", "t (FM)", "p (FM)", "Decision (FM)", "Differ?", "Direction"],
+      ...cs.rows.map((x) => [x.name, x.gamma, x.facAvg, x.seA, x.tA, x.pA, x.decA, x.seB, x.tB, x.pB, x.decB, x.differ, x.direction]), [], ["Time-series regressions"],
+      ["Portfolio", "alpha", "t(alpha)", ...ts.factorNames.map((f) => `beta_${f}`), "R2"], ...ts.names.map((n, i) => [n, ts.alpha[i], ts.tAlpha[i], ...ts.betas[i], ts.r2[i]])];
+    return csv(a);
+  }
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) {
+      try { const t = document.createElement("textarea"); t.value = text; t.style.position = "fixed"; t.style.opacity = "0"; document.body.appendChild(t); t.select(); const ok = document.execCommand("copy"); t.remove(); return ok; } catch (e2) { return false; }
+    }
+  }
+  async function saveText(name, text) {
+    try {
+      if (window.claude && typeof window.claude.use === "function") {
+        const d = await window.claude.use("downloads");
+        if (d) { await d.save({ filename: name, data: text }); return "Saved."; }
+      }
+    } catch (e) { if (e && e.code === "declined") return "Download cancelled."; }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    return "Download started. If nothing downloads, use Copy instead.";
+  }
+
+  // ------------------------------------------------------------------ events
+  function bind() {
+    const drop = $("#drop"), input = $("#file-input");
+    drop.addEventListener("click", () => input.click());
+    drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+    input.addEventListener("change", () => { loadFiles(input.files); input.value = ""; });
+    ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+    ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+    drop.addEventListener("drop", (e) => loadFiles(e.dataTransfer.files));
+    $("#btn-clear").addEventListener("click", clearData);
+
+    const F = state.form;
+    const refresh = () => { repairForm(); renderForm(); };
+    $("#f-port").addEventListener("change", (e) => { F.portfolio = e.target.value; refresh(); });
+    document.querySelectorAll('input[name="w"]').forEach((r) => r.addEventListener("change", () => { F.weighting = WEIGHTS[r.value]; refresh(); }));
+    $("#f-presets").addEventListener("click", (e) => { const b = e.target.closest("[data-preset]"); if (b && !b.disabled) { F.factors = Core.PRESETS[b.dataset.preset].slice(); refresh(); } });
+    $("#f-factors").addEventListener("change", (e) => {
+      const c = e.target.dataset.factor; if (!c) return;
+      const set = new Set(F.factors); e.target.checked ? set.add(c) : set.delete(c);
+      F.factors = Object.keys(state.menus.factorMenu).filter((k) => set.has(k)); refresh();
+    });
+    $("#f-start").addEventListener("input", (e) => { F.start = e.target.value; F.touched = true; $("#f-msg").textContent = ""; $("#f-msg").className = "msg"; liveNote(); });
+    $("#f-end").addEventListener("input", (e) => { F.end = e.target.value; F.touched = true; $("#f-msg").textContent = ""; $("#f-msg").className = "msg"; liveNote(); });
+    $("#f-sig").addEventListener("change", (e) => { F.sig = e.target.value; });
+    $("#btn-run").addEventListener("click", () => runOne());
+    $("#btn-batch").addEventListener("click", runBatch);
+
+    const res = $("#results");
+    res.addEventListener("click", async (e) => {
+      const del = e.target.closest("[data-del]");
+      if (del) { e.stopPropagation(); state.runs = state.runs.filter((r) => r.id !== del.dataset.del); if (state.sel === del.dataset.del) state.sel = null; renderResults(); return; }
+      const tab = e.target.closest("[data-tab]");
+      if (tab) { state.tab = tab.dataset.tab; $("#detail").innerHTML = detailHTML(state.runs.find((r) => r.id === state.sel)); return; }
+      const act = e.target.closest("[data-act]");
+      if (act) {
+        const a = act.dataset.act, run = state.runs.find((r) => r.id === state.sel);
+        if (a === "clear-runs") { state.runs = []; state.sel = null; state.seq = 0; renderResults(); setStatus("Runs cleared."); }
+        else if (a === "copy-all") setStatus((await copyText(allCSV())) ? "Comparison copied as CSV." : "Copy was blocked by the browser.");
+        else if (a === "save-all") setStatus(await saveText("factor-model-runs.csv", allCSV()));
+        else if (a === "copy-run" && run) setStatus((await copyText(runCSV(run))) ? `${run.id} tables copied as CSV.` : "Copy was blocked by the browser.");
+        else if (a === "save-run" && run) setStatus(await saveText(`${run.id.replace(" ", "-").toLowerCase()}.csv`, runCSV(run)));
+        return;
+      }
+      const row = e.target.closest("tr.run");
+      if (row) { state.sel = row.dataset.run; renderResults(); $("#detail").scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+    });
+    res.addEventListener("keydown", (e) => { const row = e.target.closest && e.target.closest("tr.run"); if (row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); state.sel = row.dataset.run; renderResults(); } });
+  }
+
+  // ------------------------------------------------------------------ boot
+  async function boot() {
+    bind();
+    renderAll();
+    // 1) files shipped beside the page (./data/*.zip), 2) files this browser kept from an earlier visit, 3) demo data
+    const grab = async (fname) => {
+      try {
+        const r = await fetch(`data/${fname}`);
+        if (!r.ok) return false;
+        const b = new Uint8Array(await r.arrayBuffer());
+        if (b[0] !== 0x50 || b[1] !== 0x4b) return false;
+        await ingest(fname, b, Date.now(), false);
+        return true;
+      } catch (e) { return false; }
+    };
+    if (await grab(Core.EXPECTED[0][2])) await Promise.all(Core.EXPECTED.slice(1).map((e) => grab(e[2])));
+    const kept = await idb.all();
+    for (const [label, f] of Object.entries(kept)) if (!state.data[label] && f && f.bytes) await ingest(f.name, f.bytes, f.savedAt, false);
+    if (Object.keys(state.data).length) afterDataChange();
+    else { await loadDemo(); await demoRuns(); }
+  }
+  boot();
+})();
+
+</script>
+</body>
+</html>
